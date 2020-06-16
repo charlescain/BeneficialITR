@@ -7,9 +7,6 @@ library(glmnet)
 library(foreach)
 library(randomForest)
 
-#n: sample size of simulation, beta1: vector of beta1 values (main effects of predictors), beta2: coefficient for main effect of treatement
-# beta3: vector of beta3 value (interaction effects of predictors with treatment), sigma: residual variance of outcome,
-# x.valids: Validation set of predictors, model.selection: model selection method (none, forward, lasso, modified, elastic, rf)
 one.value<- function(n, beta1, beta2, beta3, sigma, x.valids, model.selection="none", lasso.penalty="min", g.model.type="parameteric"){
   p<- dim(x.valids)[2]
   if(g.model.type=="non-parameteric"){
@@ -157,112 +154,44 @@ one.value<- function(n, beta1, beta2, beta3, sigma, x.valids, model.selection="n
   return(mean(vect))
 }
 
-#n: sample size of simulation, beta1: vector of beta1 values (main effects of predictors), beta2: coefficient for main effect of treatement
-# beta3: vector of beta3 value (interaction effects of predictors with treatment), sigma: residual variance of outcome,
-# x.valids: Validation set of predictors, model.selection: model selection method (none, forward, lasso, elastic, rf)
-loss.ratio<- function(n, beta1, beta2, beta3, sigma, x.valids, model.selection="none"){
-  p<- dim(x.valids)[2]
-  x<- rmvnorm(n, sigma = cov(x.valids))
-  a<- sample(c(rep(-1,ceiling(n/2)), rep(1, ceiling(n/2))))[1:n]
-  X<- cbind(x, a, a*x)
-  betas<- c(beta1, beta2, beta3)
-  y<- rnorm(n, X%*%betas, sqrt(sigma))
+beneficial.lasso<- function(y, x, a, q){
   dat<- data.frame(cbind(y=y, a, x))
   x.nms<- paste0("x", 1:p)
   colnames(X)<- c(x.nms, "a", paste0("a:", x.nms))
   names(dat)<- c("y", "a", x.nms)
-  if(model.selection=="none"){
-    model<- lm(y~a*x, data = dat)
-    bs<- coefficients(model)
-    bs<- bs[grepl("a", names(bs))]
-  }else if(model.selection=="forward"){
-    model.null<- lm(y~a, data = dat)
-    model.forward<- stepAIC(model.null, 
-                            scope = list(lower=~a, upper=as.formula(paste0("~a*(", paste(paste0("x", 1:p), collapse = "+"), ")"))),
-                            direction = "forward", trace = F)
-    bs<- coefficients(model.forward)
-    bs<- bs[grepl("a", names(bs))]
-    bs<- c(bs, rep(0, p-length(bs)+1))
-    names(bs)[names(bs)==""]<- paste0("a:", x.nms)[!paste0("a:", x.nms)%in%names(bs)]
-    bs<- bs[c("a", paste0("a:", x.nms))]
-  }else if(model.selection=="lasso"){
-    lasso.cv<- cv.glmnet(X, y, family = "gaussian", nfolds = 10, parallel = T)
-    lasso.model<- glmnet(X, y, family = "gaussian", lambda = lasso.cv$lambda.min, intercept = T,
-                         penalty.factor = c(rep(1,p),0,rep(1,p)))
-    lasso.bs<- coefficients(lasso.model)[,1]
-    lasso.bs<- lasso.bs[-1]
-    are0<- lasso.bs[which(lasso.bs==0)]
-    are0<- are0[grepl("a", names(are0))]
-    not0<- names(lasso.bs[which(lasso.bs!=0)])
-    if(length(not0)==0){
-      not0<- "1"
+  psuedoy<- ifelse(a== 1, y-2*beta2, y)
+  lambdas<- 1/exp(1:80/10)
+  perc<- sapply(1:1000, function(l){
+    psuedodat<- dat
+    psuedodat$a<- sample(psuedodat$a)
+    psuedoX<- model.matrix(y~x*a, psuedodat)[,-1]
+    lasso<- glmnet(psuedoX, psuedoy, family = "gaussian", lambda = lambdas,
+                   penalty.factor = c(rep(1,p),0,rep(1,p)))
+    betahats<- coef(lasso)
+    tab<- betahats[grepl(":a", row.names(betahats)),]
+    if(p<2){
+      has.inter<- tab==0
+    }else{
+      has.inter<- colSums(tab==0)==p
     }
-    model<- lm(as.formula(paste0("y ~", paste(not0, collapse = "+"))), data = dat)
-    bs<- coefficients(model)
-    bs<- bs[grepl("a", names(bs))]
-    if(any(grepl(":a", names(bs)))){
-      names(bs)[grepl(":a", names(bs))]<- paste0(sub("x.*:", "", names(bs)[grepl(":a", names(bs))]),
-                                                 ":", sub(":.*a", "", names(bs)[grepl(":a", names(bs))]))
-    }
-    bs<- c(bs, are0)
-    bs<- bs[c("a", paste0("a:", x.nms))]
-  }else if(model.selection=="elastic"){
-    a <- seq(0.1, 0.9, 0.05)
-    search <- foreach(i = a, .combine = rbind, .packages = 'glmnet') %dopar% {
-      cv <- cv.glmnet(X, y, family = "gaussian", nfold = 10, parallel = TRUE, alpha = i)
-      data.frame(cvm = cv$cvm[cv$lambda == cv$lambda.min], lambda.min = cv$lambda.min, alpha = i, parallel=T)
-    }
-    cv3 <- search[search$cvm == min(search$cvm), ]
-    elastic.model<- glmnet(X, y, family = "gaussian", lambda = cv3$lambda.min, intercept = T,
-                           alpha = cv3$alpha, penalty.factor = c(rep(1,p),0,rep(1,p)))
-    elastic.bs<- coefficients(elastic.model)[,1]
-    elastic.bs<- elastic.bs[-1]
-    are0<- elastic.bs[which(elastic.bs==0)]
-    are0<- are0[grepl("a", names(are0))]
-    not0<- names(elastic.bs[which(elastic.bs!=0)])
-    if(length(not0)==0){
-      not0<- "1"
-    }
-    model<- lm(as.formula(paste0("y ~", paste(not0, collapse = "+"))), data = dat)
-    bs<- coefficients(model)
-    bs<- bs[grepl("a", names(bs))]
-    if(any(grepl(":a", names(bs)))){
-      names(bs)[grepl(":a", names(bs))]<- paste0(sub("x.*:", "", names(bs)[grepl(":a", names(bs))]),
-                                                 ":", sub(":.*a", "", names(bs)[grepl(":a", names(bs))]))
-    }
-    bs<- c(bs, are0)
-    bs<- bs[c("a", paste0("a:", x.nms))]
-  }else if(model.selection=="rf"){
-    rf<- randomForest(y~., data = dat, importance = TRUE)
-    
-    x.valid<- as.data.frame(cbind(1, x.valids))
-    names(x.valid)<- c("a", x.nms)
-    pred1<- predict(rf, x.valid)
-    x.valid<- as.data.frame(cbind(-1, x.valids))
-    names(x.valid)<- c("a", x.nms)
-    pred0<- predict(rf, x.valid)
-    
-    trt.rule<- sign(pred1 - pred0)
-    trt.rule<- ifelse(trt.rule==0, 1, trt.rule)
-  }else{
-    stop("Must us model selection of 'none', 'forward', 'lasso', 'elastic', or 'rf'.")
+    return(has.inter)
+  })
+  tab<- rowSums(perc)/1000
+  lambda.best<- lambdas[tail(which(tab>q),1)]
+  lasso.model<- glmnet(X, y, family = "gaussian", lambda = lambda.best, intercept = T,
+                       penalty.factor = c(rep(1,p),0,rep(1,p)))
+  lasso.bs<- coefficients(lasso.model)[,1]
+  lasso.bs<- lasso.bs[-1]
+  are0<- lasso.bs[which(lasso.bs==0)]
+  are0<- are0[grepl("a", names(are0))]
+  not0<- names(lasso.bs[which(lasso.bs!=0)])
+  if(length(not0)==0){
+    not0<- "1"
   }
-  x.valid<- cbind(1, x.valids)
-  psi<-x.valid%*%c(beta2, beta3)
-  if(model.selection=="rf"){
-    psihat<- trt.rule
-  }else{
-    psihat<- x.valid%*%bs
-  }
-  v_d<- mean(x.valids%*%beta1 + sign(psi)*psi)
-  v_dhat<- mean(x.valids%*%beta1 + sign(psihat)*psi)
-  return(v_dhat/v_d)
+  model<- lm(as.formula(paste0("y ~", paste(not0, collapse = "+"))), data = dat)
+  return(model)
 }
 
-#delta: main treatment effect, nu: percent that benefit from control, V_y: variance of outcome in control group,
-# R_t: R^2 value in treatment group, p: number of predictors (dimension of beta1 and beta3),
-# betas.type: how the coefficients are specified (single: single predictor non-zero, even: all equal, diminishing: harmonic diminishing effect),
-# sig.p: covariance structure of predictors
 betas.fun<- function(delta, nu, V_y, R_c, p=1, betas.type="single", sig.p=diag(p)){
   if(!betas.type%in%c("single", "even", "diminishing")){
     stop("betas.type must be 'single', 'even', or 'diminishing'")
@@ -306,12 +235,6 @@ betas.fun<- function(delta, nu, V_y, R_c, p=1, betas.type="single", sig.p=diag(p
   return(put)
 }
 
-
-#n: sample size of simulation, beta1: vector of beta1 values (main effects of predictors), 
-# beta2: coefficient for main effect of treatement
-# beta3: vector of beta3 value (interaction effects of predictors with treatment), sigma: residual variance of outcome
-# betas.type: how the coefficients are specified (single: single predictor non-zero, even: all equal, diminishing: harmonic diminishing effect),
-# sig.p: covariance structure of predictors, model.selection: model selection method (none, forward, lasso, elastic)
 power.fun<- function(n, beta1, beta2, beta3, sigma, sig.p=diag(p), x.valids=NULL, model.selection="none", seed=NULL){
   M<-1000
   if(!is.null(seed)){
@@ -333,11 +256,6 @@ power.fun<- function(n, beta1, beta2, beta3, sigma, sig.p=diag(p), x.valids=NULL
   return(put)
 }
 
-#n: sample size of simulation, power: probability of loss less than that of a homogeneous treatment rule. 
-# delta: main treatment effect, nu: percent that benefit from control, V_y: variance of outcome in control group,
-# R_t: R^2 value in treatment group, p: number of predictors (dimension of beta1 and beta3),
-# betas.type: how the coefficients are specified (single: single predictor non-zero, even: all equal, diminishing: harmonic diminishing effect),
-# sig.p: covariance structure of predictors, model.selection: model selection method (none, forward, lasso, elastic)
 power.tailor<- function(n = NULL, power=NULL, delta, nu, V_y, R_c, p=1, betas.type="single", sig.p=diag(p),
                         x.valids=NULL, model.selection="none", seed=NULL, interval=c(10,10000)){
   betas<- betas.fun(delta = delta, nu=nu, V_y = V_y, R_c = R_c, p=p, betas.type = betas.type, sig.p = sig.p)
@@ -360,10 +278,3 @@ power.tailor<- function(n = NULL, power=NULL, delta, nu, V_y, R_c, p=1, betas.ty
   return(res)
 }
 
-betas.fun.inverse<- function(beta1, beta2, beta3, sigma2, sig.p=diag(length(beta1))){
-  delta<- 2*beta2
-  nu<- pnorm(-beta2/(sqrt(t(beta3)%*%sig.p%*%beta3)))
-  V_y<- sigma2 + t(beta1 - beta3)%*%sig.p%*%(beta1- beta3)
-  R_t<- ((beta1 + beta3)%*%sig.p%*%(beta1+beta3))/(sigma2 + (beta1 + beta3)%*%sig.p%*%(beta1+beta3))
-  return(list(delta=delta, nu=nu, V_y=V_y, R_t=R_t))
-}
