@@ -10,7 +10,7 @@ library('doParallel', lib = "~/RPackages")
 library('MASS', lib = "~/RPackages")
 library('randomForest', lib="~/RPackages")
 
-source(paste0(path, "SimFunction_v6.R"))
+source(paste0(path, "BeneficialITR.R"))
 
 #modifiable variables ----
 M<-10000
@@ -28,7 +28,7 @@ vars1<- vars[vars$dim==1,]
 vars5<- vars[vars$dim==5,]
 vars20<- vars[vars$dim==20,]
 
-write.table(vars, paste0(path, "SituationTwo/inputs_a.txt"))
+# write.table(vars, paste0(path, "SituationTwo/inputs_a.txt"))
 
 #finding n/setup ----
 # n<- power.tailor(power=0.95, R_c = 0.2, nu=0.16, V_y = 1, delta=0.3, seed = 12345)
@@ -51,7 +51,7 @@ set.seed(7358514)
 dim<- max(dims)
 x.valids<- rmvnorm(10000, sigma=diag(dim))
 
-write.table(x.valids, paste0(path, "SituationTwo/x_valids_a.txt"))
+# write.table(x.valids, paste0(path, "SituationTwo/x_valids_a.txt"))
 
 #simulation ----
 mod.selects<- c("none", "forward", "lasso", "modified", "elastic", "rf")
@@ -148,9 +148,9 @@ for(i in colnames(result)){
   by.dim.result[[i]]<- new
 }
 
-for(i in names(by.dim.result)){
-  write.table(by.dim.result[[i]], paste0(path, "SavedSimulations/", title, i, ".txt"), row.names = F)
-}
+# for(i in names(by.dim.result)){
+#   write.table(by.dim.result[[i]], paste0(path, "SavedSimulations/", title, i, ".txt"), row.names = F)
+# }
 
 #Results----
 # path<- "C:/Users/Charles Cain/Dropbox/School/Dissertation/"
@@ -159,7 +159,7 @@ path<- "C:/Users/Charles/Dropbox/School/Dissertation/"
 library(mvtnorm)
 library(xtable)
 
-source(paste0(path, "Code/SimFunction_v6.R"))
+source(paste0(path, "Code/BeneficialITR.R"))
 
 inputs<- read.table(paste0(path, "Code/SituationTwo/inputs_a.txt"), header = T)
 x.valids<- read.table(paste0(path, "Code/SituationTwo/x_valids_a.txt"), header = T)

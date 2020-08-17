@@ -10,7 +10,7 @@ library('doParallel', lib = "~/RPackages")
 library('MASS', lib = "~/RPackages")
 library('randomForest', lib = "~/RPackages")
 
-source(paste0(path, "SimFunction_v4.R"))
+source(paste0(path, "BeneficialITR.R"))
 
 cr<- 24
 cl<- makeCluster(cr)
@@ -21,7 +21,7 @@ registerDoParallel(cl)
 M<- 10000
 v_y<-1
 delta<- 0.3
-r_t<- 0.3
+r_c<- 0.1
 nu<- 0.16
 
 # Achieve Main ----
@@ -31,7 +31,7 @@ title<- "sit1_achievemain_"
 alpha<- 0.05
 power<- 0.9
 dims<- c(1,2, seq(5,20, by=5))
-bs<- lapply(dims, function(x){betas.fun(delta = delta, V_y = v_y, R_t = r_t, nu=nu, p=x)})
+bs<- lapply(dims, function(x){betas.fun(delta = delta, V_y = v_y, R_c = r_c, nu=nu, p=x)})
 v<- 4*v_y
 n<- ceiling((qnorm(1-alpha/2, 0, 1) + qnorm(power, 0,1))^2 * v/(delta)^2 /2)*2
 dim<- tail(dims, n=1)
@@ -163,17 +163,17 @@ library(ggpubr)
 library(doParallel)
 library(randomForest)
 
-source(paste0(path, "Code/SimFunction_v4.R"))
+source(paste0(path, "BeneficialITR.R"))
 
 # Setting Crucial Values (uncorrelated) ----
 M<- 10000
 v_y<-1
 delta<- 0.3
-r_t<- 0.3
+r_c<- 0.1
 nu<- 0.16
 
 dims<- c(1,2, seq(5,20, by=5))
-bs<- lapply(dims, function(x){betas.fun(delta = delta, V_y = v_y, R_t = r_t, nu=nu, p=x)})
+bs<- lapply(dims, function(x){betas.fun(delta = delta, V_y = v_y, R_c = r_c, nu=nu, p=x)})
 dim<- tail(dims, n=1)
 H<- abs(outer(1:dim, 1:dim, "-"))
 V<- 0^H
@@ -349,7 +349,7 @@ dev.off()
 benefit.g<-gs
 
 # probablity of harm ----
-bs<- lapply(dims, function(x){betas.fun(delta = delta, V_y = v_y, R_t = r_t, nu=nu, p=x)})
+bs<- lapply(dims, function(x){betas.fun(delta = delta, V_y = v_y, R_c = r_c, nu=nu, p=x)})
 
 nomain<- list()
 under<- list()
@@ -522,7 +522,7 @@ ggarrange(benefit.g, harm.g, nrow = 1, common.legend = T)
 dev.off()
 
 # Looking at Ratios as well ----
-bs<- lapply(dims, function(x){betas.fun(delta = delta, V_y = v_y, R_t = r_t, nu=nu, p=x)})
+bs<- lapply(dims, function(x){betas.fun(delta = delta, V_y = v_y, R_c = r_c, nu=nu, p=x)})
 
 nomain2<- nomain[,grepl("dim2.", names(nomain)) & !grepl("dim20.", names(nomain))]
 under2<- under[,grepl("dim2.", names(under)) & !grepl("dim20.", names(under))]

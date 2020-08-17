@@ -10,14 +10,14 @@ library('doParallel', lib = "~/RPackages")
 library('MASS', lib = "~/RPackages")
 library('randomForest', lib="~/RPackages")
 
-source(paste0(path, "SimFunction_v4.R"))
+source(paste0(path, "BeneficialITR.R"))
 
 #modifiable variables ----
 M<-10000
 vy<- 1
 d<- 0.3
 dims<- c(1,5,20)
-rt<- 0.5
+rc<- 0.3
 v<- 0.16
 rho<- c(0, 0.8)
 type<- 1:3
@@ -45,10 +45,10 @@ vars5<- vars[vars$dim==5,]
 vars20<- vars[vars$dim==20,]
 
 #finding n/setup ----
-# n<- power.tailor(power=0.95, R_t = 0.5, nu=0.16, V_y = 1, delta=0.3, seed = 12345)
+# n<- power.tailor(power=0.95, R_c = 0.5, nu=0.16, V_y = 1, delta=0.3, seed = 12345)
 n<- 196
 b.fun<- function(vect){
-  b<- betas.fun(R_t = vect[2], nu = vect[3], V_y = vect[4], delta = vect[5], p=vect[1], sig.p=vect[6]^abs(outer(1:vect[1], 1:vect[1], "-")),
+  b<- betas.fun(R_c = vect[2], nu = vect[3], V_y = vect[4], delta = vect[5], p=vect[1], sig.p=vect[6]^abs(outer(1:vect[1], 1:vect[1], "-")),
                 betas.type = type.fun(vect[7]))
   return(c(b))
 }

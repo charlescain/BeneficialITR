@@ -9,7 +9,7 @@ library('mvtnorm', lib = "~/RPackages")
 library('glmnet', lib = "~/RPackages")
 library('doParallel', lib = "~/RPackages")
 
-source(paste0(path, "SimFunction_v4.R"))
+source(paste0(path, "BeneficialITR.R"))
 
 cr<- 24
 cl<- makeCluster(cr)
@@ -20,7 +20,7 @@ registerDoParallel(cl)
 M<- 10000
 v_y<-1
 delta<- 0.3
-r_t<- 0.3
+r_c<- 0.1
 nu<- 0.16
 
 # Achieve Main ----
@@ -30,7 +30,7 @@ title<- "sit1_achievemain_lasso_"
 alpha<- 0.05
 power<- 0.9
 dims<- c(1,2, seq(5,20, by=5))
-bs<- lapply(dims, function(x){betas.fun(delta = delta, V_y = v_y, R_t = r_t, nu=nu, p=x)})
+bs<- lapply(dims, function(x){betas.fun(delta = delta, V_y = v_y, R_c = r_c, nu=nu, p=x)})
 v<- 4*v_y
 n<- ceiling((qnorm(1-alpha/2, 0, 1) + qnorm(power, 0,1))^2 * v/(delta)^2 /2)*2
 dim<- tail(dims, n=1)
@@ -139,7 +139,7 @@ for(i in names(by.dim.result)){
 # Null result new ----
 delta
 nu<- 0
-bs<- lapply(dims, function(x){betas.fun(delta = delta, V_y = v_y, R_t = r_t, nu=nu, p=x)})
+bs<- lapply(dims, function(x){betas.fun(delta = delta, V_y = v_y, R_c = r_c, nu=nu, p=x)})
 
 title<- "sit1_null_lasso_"
 
@@ -193,11 +193,11 @@ source(paste0(path, "Code/SimFunction_v4.R"))
 M<- 10000
 v_y<-1
 delta<- 0.3
-r_t<- 0.3
+r_c<- 0.1
 nu<- 0.16
 
 dims<- c(1,2, seq(5,20, by=5))
-bs<- lapply(dims, function(x){betas.fun(delta = delta, V_y = v_y, R_t = r_t, nu=nu, p=x)})
+bs<- lapply(dims, function(x){betas.fun(delta = delta, V_y = v_y, R_c = r_c, nu=nu, p=x)})
 dim<- tail(dims, n=1)
 H<- abs(outer(1:dim, 1:dim, "-"))
 V<- 0^H
@@ -305,7 +305,7 @@ nomain.diff<- data.frame(cbind(diff.tab, "nomain"))
 names(nomain.diff)<- c("dims", "diff", "sim", "type")
 
 #Null----
-bs<- lapply(dims, function(x){betas.fun(delta = delta, V_y = v_y, R_t = r_t, nu=nu, p=x)})
+bs<- lapply(dims, function(x){betas.fun(delta = delta, V_y = v_y, R_c = r_c, nu=nu, p=x)})
 bs<- lapply(bs, function(x){
   out<- x
   out$beta3<- ifelse(out$beta3!=0, 0, out$beta3)
@@ -474,7 +474,7 @@ nomain.diff<- data.frame(cbind(diff.tab, "nomain"))
 names(nomain.diff)<- c("dims", "diff", "sim", "type")
 
 #Null----
-bs<- lapply(dims, function(x){betas.fun(delta = delta, V_y = v_y, R_t = r_t, nu=nu, p=x)})
+bs<- lapply(dims, function(x){betas.fun(delta = delta, V_y = v_y, R_c = r_c, nu=nu, p=x)})
 bs<- lapply(bs, function(x){
   out<- x
   out$beta3<- ifelse(out$beta3!=0, 0, out$beta3)
