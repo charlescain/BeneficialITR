@@ -64,7 +64,8 @@ one.value<- function(n, beta1, beta2, beta3, sigma, x.valids, model.selection="n
     bs<- c(bs, are0)
     bs<- bs[c("a", paste0("a:", x.nms))]
   }else if(model.selection=="modified"){
-    psuedoy<- ifelse(a== 1, y-2*beta2, y)
+    delta<- mean(subset(dat, dat$a==1)$y) - mean(subset(dat, dat$a==-1)$y)
+    psuedoy<- ifelse(a== 1, y-delta, y)
     lambdas<- 1/exp(1:80/10)
     perc<- sapply(1:1000, function(l){
       psuedodat<- dat
@@ -151,7 +152,12 @@ one.value<- function(n, beta1, beta2, beta3, sigma, x.valids, model.selection="n
     psihat<- x.valid%*%bs
   }
   vect<- sign(psihat)*psi
-  return(mean(vect))
+  
+  static<- lm(y~a, data=dat)
+  static.rule<- sign(coefficients(static)["a"])
+  static.vect<- static.rule*psi
+  
+  return(c(mean(vect), mean(static.vect)))
 }
 
 beneficial.lasso<- function(y, x, a, q){
