@@ -256,7 +256,7 @@ power.fun<- function(n, beta1, beta2, beta3, sigma, sig.p=diag(p), x.valids=NULL
                 .export = "one.loss") %dopar% {if(!is.null(seed)){set.seed(seed+i)}
                   one.value(n=n, beta1=beta1, beta2=beta2, beta3=beta3,
                             sigma = sigma, model.selection = model.selection,
-                            x.valids = x.valids)}
+                            x.valids = x.valids)[1]}
   res<- unlist(sim)
   put<- sum(res > ld0, na.rm = T)/M
   return(put)
